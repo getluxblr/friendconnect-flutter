@@ -29,6 +29,21 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
+      # Google Sign-In's OAuth client is registered against a specific SHA-1
+      # certificate fingerprint. This project ships release builds signed
+      # with the debug keystore (see note below), and GitHub Actions runners
+      # are ephemeral — without this step, Android's tooling would generate
+      # a BRAND NEW random debug keystore on every single run, so the SHA-1
+      # (and therefore Google Sign-In) would silently break build-to-build.
+      # ci_keystore/debug.keystore is a fixed, checked-in, low-sensitivity
+      # debug keystore (NOT the real release-signing key) whose SHA-1 is
+      # permanently registered in Firebase, so every build produces the same
+      # fingerprint.
+      - name: Install fixed debug keystore (stable Google Sign-In SHA-1)
+        run: |
+          mkdir -p ~/.android
+          cp ci_keystore/debug.keystore ~/.android/debug.keystore
+
       # This project intentionally ships without an android/ folder so the
       # build always uses Gradle/AGP versions matched to whatever Flutter
       # version this workflow installs, instead of hand-written files that
