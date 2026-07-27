@@ -63,6 +63,10 @@ jobs:
           # transitive dependencies alongside a modern Kotlin plugin.
           sed -i -E 's/(id "com\.android\.application" version ")[^"]+(" apply false)/\18.3.2\2/' android/settings.gradle
 
+          # AGP 8.3.2 requires Gradle 8.4+, but the generated wrapper still
+          # points at an older Gradle. Bump the wrapper distribution too.
+          sed -i -E 's#distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
+
           # flutter_plugin_android_lifecycle (pulled in transitively) needs
           # to compile against SDK 35, newer than this Flutter version's
           # default compileSdk.
@@ -86,6 +90,8 @@ jobs:
           cat android/app/build.gradle
           echo "----- AndroidManifest.xml -----"
           cat android/app/src/main/AndroidManifest.xml
+          echo "----- gradle-wrapper.properties -----"
+          cat android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Install dependencies
         run: flutter pub get
