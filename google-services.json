@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "547918288229",
+    "project_id": "friendconnect-88a41",
+    "storage_bucket": "friendconnect-88a41.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:547918288229:android:5691a6ad214645f136fd8c",
+        "android_client_info": {
+          "package_name": "com.example.friendconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjk2EXBBGz-g3sldr-9S7vGuALbgYZznU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
