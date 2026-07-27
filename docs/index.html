@@ -409,12 +409,12 @@ function startAllListeners(){
 
   unsubs.push(onSnapshot(collection(db,'rechargeTickets'), (snap)=>{
     ticketsData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    renderTickets(); renderFinance();
+    renderTickets(); renderFinance(); renderOverview();
   }, (err)=> toast('Recharge tickets read failed: '+err.message)));
 
   unsubs.push(onSnapshot(collection(db,'kyc'), (snap)=>{
     kycData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-    renderKyc();
+    renderKyc(); renderOverview();
   }, (err)=> toast('KYC read failed: '+err.message)));
 
   unsubs.push(onSnapshot(query(collection(db,'walletTransactions'), orderBy('createdAt','desc'), limit(30)), (snap)=>{
