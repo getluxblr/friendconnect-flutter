@@ -14,9 +14,9 @@ jobs:
       - name: Unzip project source
         run: |
           unzip -o friendconnect_flutter_source.zip -d _src
-          cp -r _src/friendconnect_flutter/lib .
-          cp _src/friendconnect_flutter/pubspec.yaml .
-          cp _src/friendconnect_flutter/.gitignore . || true
+          cp -r _src/lib .
+          cp _src/pubspec.yaml .
+          cp _src/.gitignore . || true
           rm -rf _src friendconnect_flutter_source.zip
 
       - uses: subosito/flutter-action@v2
@@ -24,8 +24,36 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
+      # This project intentionally ships without an android/ folder so the
+      # build always uses Gradle/AGP versions matched to whatever Flutter
+      # version this workflow installs, instead of hand-written files that
+      # could drift out of date.
       - name: Generate Android platform project
         run: flutter create --platforms=android --project-name friendconnect .
+
+      - name: Configure Firebase + real-call permissions
+        run: |
+          # Drop the Firebase Android config into the generated project.
+          cp google-services.json android/app/google-services.json
+
+          # Add the google-services Gradle plugin classpath (project-level).
+          sed -i "0,/dependencies {/{s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/}" android/build.gradle
+
+          # Apply the plugin in the app module.
+          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+
+          # flutter_webrtc's native Android library needs API 24+.
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
+
+          # Camera/mic/network permissions for real WebRTC calls.
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>\n    <uses-permission android:name="android.permission.BLUETOOTH"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n\n    <application#' android/app/src/main/AndroidManifest.xml
+
+          echo "----- android/build.gradle -----"
+          cat android/build.gradle
+          echo "----- android/app/build.gradle -----"
+          cat android/app/build.gradle
+          echo "----- AndroidManifest.xml -----"
+          cat android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         run: flutter pub get
