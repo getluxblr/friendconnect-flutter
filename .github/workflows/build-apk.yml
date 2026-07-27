@@ -19,6 +19,11 @@ jobs:
           cp _src/.gitignore . || true
           rm -rf _src friendconnect_flutter_source.zip
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
@@ -49,7 +54,20 @@ jobs:
           # template's default Kotlin plugin version, causing
           # "compiled with an incompatible version of Kotlin" errors.
           # Bump it regardless of whatever version the template pinned.
-          sed -i -E 's/(id "org\.jetbrains\.kotlin\.android" version ")[^"]+(" apply false)/\11.9.24\2/' android/settings.gradle
+          # google_sign_in's transitive AndroidX deps (Credentials API etc.)
+          # need a newer Kotlin than Firebase alone did, so bump further.
+          sed -i -E 's/(id "org\.jetbrains\.kotlin\.android" version ")[^"]+(" apply false)/\12.0.21\2/' android/settings.gradle
+
+          # Likewise bump the Android Gradle Plugin — the template's default
+          # is too old to reliably resolve google_sign_in's newer AndroidX
+          # transitive dependencies alongside a modern Kotlin plugin.
+          sed -i -E 's/(id "com\.android\.application" version ")[^"]+(" apply false)/\18.3.2\2/' android/settings.gradle
+
+          # flutter_plugin_android_lifecycle (pulled in transitively) needs
+          # to compile against SDK 35, newer than this Flutter version's
+          # default compileSdk.
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/' android/app/build.gradle
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' android/app/build.gradle
 
           # flutter_webrtc's native Android library needs API 24+. Modern
           # templates use property-assignment syntax (minSdk = ...) rather
