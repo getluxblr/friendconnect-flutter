@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FriendConnect CRM</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#171b2e; --panel2:#1e2338; --border:#2a2f47;
+    --text:#eef0fb; --dim:#9aa0c3; --dim2:#6e7396;
+    --accent:#7c5cff; --accent2:#5b8cff; --green:#2fd08a; --red:#ff6b6b; --amber:#ffb84d;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:inherit;}
+  /* ---------- Login screen ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .loginCard{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:32px 28px;}
+  .loginCard h1{font-size:20px;margin:0 0 4px;}
+  .loginCard p.sub{color:var(--dim);font-size:13px;margin:0 0 24px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;font-weight:600;}
+  .field input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;outline:none;}
+  .field input:focus{border-color:var(--accent);}
+  .btn{cursor:pointer;border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+  .btn:disabled{opacity:.6;cursor:not-allowed;}
+  .btn.full{width:100%;}
+  .btn.secondary{background:var(--panel2);border:1px solid var(--border);color:var(--text);}
+  .btn.danger{background:linear-gradient(135deg,#ff6b6b,#ff3b6f);}
+  .btn.small{padding:6px 12px;font-size:12px;}
+  .errText{color:var(--red);font-size:12.5px;margin-top:10px;min-height:16px;}
+  /* ---------- App shell ---------- */
+  #app{display:none;min-height:100vh;}
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 10px 22px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(47,208,138,.15);}
+  .brand b{font-size:15px;}
+  .navBtn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;color:var(--dim);font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:4px;}
+  .navBtn:hover{background:var(--panel2);color:var(--text);}
+  .navBtn.active{background:rgba(124,92,255,.15);color:#fff;}
+  .sideFoot{margin-top:auto;padding-top:16px;border-top:1px solid var(--border);}
+  .sideFoot .email{font-size:11.5px;color:var(--dim2);word-break:break-all;margin-bottom:10px;}
+  .main{flex:1;padding:26px 30px;max-width:1280px;}
+  .pageTitle{font-size:22px;font-weight:800;margin:0 0 4px;}
+  .pageSub{color:var(--dim);font-size:13px;margin:0 0 22px;}
+  .page{display:none;}
+  .page.active{display:block;}
+  /* ---------- Cards / grid ---------- */
+  .cardGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+  .card .label{font-size:11.5px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+  .card .value{font-size:26px;font-weight:800;}
+  .card .sub{font-size:11.5px;color:var(--dim2);margin-top:6px;}
+  .card.accentGreen .value{color:var(--green);}
+  .card.accentRed .value{color:var(--red);}
+  .card.accentAmber .value{color:var(--amber);}
+  /* ---------- Filters / chips ---------- */
+  .filterRow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .chip{padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:700;background:var(--panel2);border:1px solid var(--border);color:var(--dim);cursor:pointer;}
+  .chip.active{background:rgba(124,92,255,.18);border-color:var(--accent);color:#fff;}
+  /* ---------- Table ---------- */
+  .tableWrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:12px 14px;color:var(--dim);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.male{background:rgba(91,140,255,.15);color:#8fb0ff;}
+  .badge.female{background:rgba(255,107,157,.15);color:#ff9dc0;}
+  .badge.online{background:rgba(47,208,138,.15);color:var(--green);}
+  .badge.offline{background:rgba(255,255,255,.06);color:var(--dim2);}
+  .badge.pending{background:rgba(255,184,77,.15);color:var(--amber);}
+  .badge.verified,.badge.completed{background:rgba(47,208,138,.15);color:var(--green);}
+  .badge.rejected{background:rgba(255,107,107,.15);color:var(--red);}
+  .searchBox{padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--text);font-size:13px;width:240px;margin-bottom:14px;}
+  .emptyState{padding:36px;text-align:center;color:var(--dim2);font-size:13px;}
+  .sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+  .sectionHead h3{margin:0;font-size:15px;}
+  .noteBox{background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.25);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--dim);margin-bottom:18px;line-height:1.6;}
+  .noteBox b{color:var(--text);}
+  .financeGrid{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start;}
+  @media (max-width:900px){.financeGrid{grid-template-columns:1fr;}}
+  .panelBox{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:18px;}
+  .panelBox h3{margin:0 0 14px;font-size:14.5px;}
+  .kvRow{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .kvRow:last-child{border-bottom:none;}
+  .kvRow .k{color:var(--dim);}
+  .kvRow .v{font-weight:700;}
+  .inputInline{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .inputInline label{font-size:12.5px;color:var(--dim);flex:1;}
+  .inputInline input{width:100px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:13px;text-align:right;}
+  .kycThumb{width:52px;height:52px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border);}
+  .modalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modalOverlay.open{display:flex;}
+  .modalBox{background:var(--panel);border:1px solid var(--border);border-radius:16px;max-width:520px;width:100%;padding:22px;max-height:85vh;overflow:auto;}
+  .modalBox img{width:100%;border-radius:10px;margin-bottom:10px;}
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--panel2);border:1px solid var(--border);padding:12px 18px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:80;display:none;}
+  .loadingRow{padding:22px;text-align:center;color:var(--dim2);font-size:13px;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;}
+  .refreshHint{font-size:11px;color:var(--dim2);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="loginCard">
+    <h1>FriendConnect CRM</h1>
+    <p class="sub">Admin / ops dashboard — sign in to continue</p>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@friendconnect.app" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn full" id="loginBtn">Sign in</button>
+    <div class="errText" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand"><span class="dot"></span><b>FriendConnect CRM</b></div>
+      <div class="navBtn active" data-page="overview">Overview</div>
+      <div class="navBtn" data-page="users">Users</div>
+      <div class="navBtn" data-page="finance">Finance &amp; Revenue</div>
+      <div class="navBtn" data-page="recharge">Recharge Requests</div>
+      <div class="navBtn" data-page="kyc">KYC Review</div>
+      <div class="sideFoot">
+        <div class="email" id="adminEmailLabel"></div>
+        <button class="btn secondary full small" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+
+    <div class="main">
+
+      <!-- ===== OVERVIEW ===== -->
+      <div class="page active" id="page-overview">
+        <h2 class="pageTitle">Overview</h2>
+        <p class="pageSub">Live counts from Firestore. Refreshes automatically.</p>
+        <div class="cardGrid" id="overviewCards"></div>
+
+        <div class="sectionHead"><h3>Users by gender</h3></div>
+        <div class="cardGrid" id="genderCards" style="margin-bottom:24px;"></div>
+
+        <div class="sectionHead"><h3>Activity status</h3></div>
+        <div class="cardGrid" id="activityCards"></div>
+      </div>
+
+      <!-- ===== USERS ===== -->
+      <div class="page" id="page-users">
+        <h2 class="pageTitle">Users</h2>
+        <p class="pageSub">Male / Female filter, active / inactive, online / offline — all in one table.</p>
+        <input class="searchBox" id="userSearch" placeholder="Search name or phone…" />
+        <div class="filterRow" id="userFilters">
+          <span class="chip active" data-f="gender" data-v="all">All genders</span>
+          <span class="chip" data-f="gender" data-v="male">Male</span>
+          <span class="chip" data-f="gender" data-v="female">Female</span>
+          <span class="chip active" data-f="status" data-v="all">All status</span>
+          <span class="chip" data-f="status" data-v="online">Online</span>
+          <span class="chip" data-f="status" data-v="offline">Offline</span>
+          <span class="chip active" data-f="activity" data-v="all">All activity</span>
+          <span class="chip" data-f="activity" data-v="active">Active (30d)</span>
+          <span class="chip" data-f="activity" data-v="inactive">Inactive</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr>
+              <th>Name</th><th>Phone</th><th>Gender</th><th>Status</th><th>Activity</th><th>Wallet ₹</th><th>Last seen</th><th>Joined</th>
+            </tr></thead>
+            <tbody id="usersTbody"></tbody>
+          </table>
+          <div class="loadingRow" id="usersLoading">Loading users…</div>
+        </div>
+      </div>
+
+      <!-- ===== FINANCE ===== -->
+      <div class="page" id="page-finance">
+        <h2 class="pageTitle">Finance &amp; Revenue</h2>
+        <p class="pageSub">Detailed money report — wallet liability, collections, GST and a profit estimator.</p>
+        <div class="noteBox">
+          <b>How the numbers are built:</b> "Revenue" = recharge tickets marked <b>completed</b> in the Recharge Requests tab (i.e. payment actually collected by your team). The ₹5,000 / ₹500 admin test-account balance is excluded from revenue automatically. GST rate and operating costs / payouts below are editable — nothing here is invented, but profit needs your real cost numbers to be accurate, so it starts at ₹0 until you fill them in.
+        </div>
+        <div class="cardGrid" id="financeCards" style="margin-bottom:22px;"></div>
+        <div class="financeGrid">
+          <div>
+            <div class="panelBox">
+              <h3>Revenue → GST → Net</h3>
+              <div class="inputInline">
+                <label>GST rate applied on collections (%) — verify with your CA for the correct rate/classification</label>
+                <input type="number" id="gstRateInput" step="0.5" />
+              </div>
+              <div class="kvRow"><span class="k">Gross collections (completed recharges)</span><span class="v" id="fGross">₹0</span></div>
+              <div class="kvRow"><span class="k">GST portion (assumed inclusive)</span><span class="v" id="fGst">₹0</span></div>
+              <div class="kvRow"><span class="k">Net revenue (excl. GST)</span><span class="v" id="fNet">₹0</span></div>
+              <div class="kvRow"><span class="k">Total consumed on calls (wallet debits)</span><span class="v" id="fCallSpend">₹0</span></div>
+              <div class="kvRow"><span class="k">Pending recharge requests (not yet counted)</span><span class="v" id="fPending">₹0</span></div>
+            </div>
+            <div class="panelBox">
+              <h3>Profit estimator (editable)</h3>
+              <div class="inputInline"><label>Payouts to earners / partners (₹)</label><input type="number" id="payoutsInput" /></div>
+              <div class="inputInline"><label>Operating costs — infra, telecalling, etc. (₹)</label><input type="number" id="costsInput" /></div>
+              <button class="btn small" id="saveFinanceSettings">Save</button>
+              <div class="kvRow" style="margin-top:14px;"><span class="k">Net revenue</span><span class="v" id="pNet">₹0</span></div>
+              <div class="kvRow"><span class="k">− Payouts</span><span class="v" id="pPayouts">₹0</span></div>
+              <div class="kvRow"><span class="k">− Operating costs</span><span class="v" id="pCosts">₹0</span></div>
+              <div class="kvRow"><span class="k"><b>Estimated profit</b></span><span class="v" id="pProfit" style="font-size:16px;">₹0</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="panelBox">
+              <h3>Total wallet balance across all users</h3>
+              <div class="value" style="font-size:28px;font-weight:800;" id="totalWalletLiability">₹0</div>
+              <div class="refreshHint">This is money owed to users (their spendable call credit) — it's a liability, not revenue.</div>
+            </div>
+            <div class="panelBox">
+              <h3>Recent wallet transactions</h3>
+              <div class="tableWrap" style="border:none;">
+                <table><tbody id="txTbody"></tbody></table>
+                <div class="loadingRow" id="txLoading">Loading…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RECHARGE ===== -->
+      <div class="page" id="page-recharge">
+        <h2 class="pageTitle">Recharge Requests</h2>
+        <p class="pageSub">Users raise a ticket, your team calls to collect payment, then mark it paid here — it credits their wallet instantly.</p>
+        <div class="filterRow" id="ticketFilters">
+          <span class="chip active" data-v="pending">Pending</span>
+          <span class="chip" data-v="completed">Completed</span>
+          <span class="chip" data-v="all">All</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Amount</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead>
+            <tbody id="ticketsTbody"></tbody>
+          </table>
+          <div class="loadingRow" id="ticketsLoading">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ===== KYC ===== -->
+      <div class="page" id="page-kyc">
+        <h2 class="pageTitle">KYC Review</h2>
+        <p class="pageSub">Manual document verification for female users.</p>
+        <div class="filterRow" id="kycFilters">
+          <span class="chip active" data-v="pending">Pending</span>
+          <span class="chip" data-v="verified">Verified</span>
+          <span class="chip" data-v="rejected">Rejected</span>
+          <span class="chip" data-v="all">All</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Documents</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
+            <tbody id="kycTbody"></tbody>
+          </table>
+          <div class="loadingRow" id="kycLoading">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="imgModal"><div class="modalBox" id="imgModalBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, onSnapshot, query, where,
+  addDoc, updateDoc, setDoc, runTransaction, serverTimestamp, orderBy, limit
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB1yyLWbryfJGc00aLILPIbEdF8FTg8EGw",
+  authDomain: "friendconnect-88a41.firebaseapp.com",
+  projectId: "friendconnect-88a41",
+  storageBucket: "friendconnect-88a41.firebasestorage.app",
+  messagingSenderId: "547918288229",
+  appId: "1:547918288229:web:edf98915c73ced1236fd8c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const ADMIN_TEST_PHONE = "6363958868";
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>{ t.style.display='none'; }, 3200);
+}
+function inr(n){
+  n = Number(n)||0;
+  return '₹' + n.toLocaleString('en-IN', {maximumFractionDigits:0});
+}
+function fmtDate(ts){
+  if(!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+function isAdminTestPhone(phone){
+  if(!phone) return false;
+  const digits = String(phone).replace(/\D/g,'');
+  return digits.slice(-10) === ADMIN_TEST_PHONE;
+}
+
+// ---------------- Auth ----------------
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPassword').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
+
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if(!email || !pw){ errEl.textContent = 'Enter email and password.'; return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try{
+    await signInWithEmailAndPassword(auth, email, pw);
+  }catch(e){
+    errEl.textContent = e.code === 'auth/invalid-credential' ? 'Invalid email or password.' : (e.message || 'Sign-in failed.');
+  }
+  btn.disabled = false; btn.textContent = 'Sign in';
+}
+
+document.getElementById('logoutBtn').addEventListener('click', ()=> signOut(auth));
+
+let unsubs = [];
+function clearSubs(){ unsubs.forEach(u=>{ try{u();}catch(_){} }); unsubs = []; }
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user){
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('app').style.display='none';
+    clearSubs();
+    return;
+  }
+  // Confirm this account is an authorized admin (admins/{uid}.get is allowed
+  // for the owner only — see Firestore rules).
+  try{
+    const adminDoc = await getDoc(doc(db,'admins', user.uid));
+    if(!adminDoc.exists()){
+      document.getElementById('loginError').textContent = 'This account is not an authorized admin.';
+      await signOut(auth);
+      return;
+    }
+  }catch(e){
+    document.getElementById('loginError').textContent = 'Not authorized, or security rules are not yet updated — see setup notes.';
+    await signOut(auth);
+    return;
+  }
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('adminEmailLabel').textContent = user.email;
+  startAllListeners();
+});
+
+// ---------------- Nav ----------------
+document.querySelectorAll('.navBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navBtn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+  });
+});
+
+// ---------------- Data state ----------------
+let usersData = [];      // from users collection
+let walletsData = {};    // uid -> balance
+let ticketsData = [];    // rechargeTickets
+let kycData = [];        // kyc docs
+let txData = [];         // walletTransactions (recent)
+let financeSettings = { gstRate: 18, payouts: 0, costs: 0 };
+
+function startAllListeners(){
+  clearSubs();
+
+  unsubs.push(onSnapshot(collection(db,'users'), (snap)=>{
+    usersData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderOverview(); renderUsers();
+  }, (err)=> toast('Users read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(collection(db,'wallets'), (snap)=>{
+    walletsData = {};
+    snap.docs.forEach(d=>{ walletsData[d.id] = (d.data().balance)||0; });
+    renderUsers(); renderFinance();
+  }, (err)=> toast('Wallets read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(collection(db,'rechargeTickets'), (snap)=>{
+    ticketsData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderTickets(); renderFinance();
+  }, (err)=> toast('Recharge tickets read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(collection(db,'kyc'), (snap)=>{
+    kycData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderKyc();
+  }, (err)=> toast('KYC read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(query(collection(db,'walletTransactions'), orderBy('createdAt','desc'), limit(30)), (snap)=>{
+    txData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderFinance();
+  }, (err)=> toast('Ledger read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(doc(db,'settings','finance'), (docSnap)=>{
+    if(docSnap.exists()){
+      const d = docSnap.data();
+      financeSettings.gstRate = d.gstRate ?? 18;
+      financeSettings.payouts = d.payouts ?? 0;
+      financeSettings.costs = d.costs ?? 0;
+      document.getElementById('gstRateInput').value = financeSettings.gstRate;
+      document.getElementById('payoutsInput').value = financeSettings.payouts;
+      document.getElementById('costsInput').value = financeSettings.costs;
+    } else {
+      document.getElementById('gstRateInput').value = 18;
+      document.getElementById('payoutsInput').value = 0;
+      document.getElementById('costsInput').value = 0;
+    }
+    renderFinance();
+  }, (err)=> toast('Settings read failed: '+err.message)));
+}
+
+// ---------------- Overview ----------------
+function daysSince(ts){
+  if(!ts) return Infinity;
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return (Date.now() - d.getTime()) / 86400000;
+}
+
+function renderOverview(){
+  const total = usersData.length;
+  const male = usersData.filter(u=>u.role==='male').length;
+  const female = usersData.filter(u=>u.role==='female').length;
+  const online = usersData.filter(u=>u.online===true).length;
+  const active = usersData.filter(u=> daysSince(u.lastSeen) <= 30).length;
+  const inactive = total - active;
+
+  document.getElementById('overviewCards').innerHTML = `
+    <div class="card"><div class="label">Total Users</div><div class="value">${total}</div></div>
+    <div class="card accentGreen"><div class="label">Online Now</div><div class="value">${online}</div></div>
+    <div class="card"><div class="label">Offline</div><div class="value">${total-online}</div></div>
+    <div class="card accentAmber"><div class="label">Pending Recharge Tickets</div><div class="value">${ticketsData.filter(t=>t.status==='pending').length}</div></div>
+    <div class="card accentAmber"><div class="label">Pending KYC</div><div class="value">${kycData.filter(k=>k.status==='pending').length}</div></div>
+  `;
+
+  document.getElementById('genderCards').innerHTML = `
+    <div class="card"><div class="label">Male Users</div><div class="value">${male}</div><div class="sub">${total? Math.round(male/total*100):0}% of total</div></div>
+    <div class="card"><div class="label">Female Users</div><div class="value">${female}</div><div class="sub">${total? Math.round(female/total*100):0}% of total</div></div>
+  `;
+
+  document.getElementById('activityCards').innerHTML = `
+    <div class="card accentGreen"><div class="label">Active (seen in 30 days)</div><div class="value">${active}</div></div>
+    <div class="card accentRed"><div class="label">Inactive</div><div class="value">${inactive}</div></div>
+  `;
+}
+
+// ---------------- Users table ----------------
+let userFilterState = { gender:'all', status:'all', activity:'all' };
+document.querySelectorAll('#userFilters .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const f = chip.dataset.f;
+    document.querySelectorAll(`#userFilters .chip[data-f="${f}"]`).forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    userFilterState[f] = chip.dataset.v;
+    renderUsers();
+  });
+});
+document.getElementById('userSearch').addEventListener('input', renderUsers);
+
+function renderUsers(){
+  document.getElementById('usersLoading').style.display = usersData.length ? 'none' : 'block';
+  const search = document.getElementById('userSearch').value.trim().toLowerCase();
+  let rows = usersData.slice();
+  if(userFilterState.gender !== 'all') rows = rows.filter(u=>u.role===userFilterState.gender);
+  if(userFilterState.status !== 'all') rows = rows.filter(u=> (userFilterState.status==='online') ? u.online===true : u.online!==true);
+  if(userFilterState.activity !== 'all') rows = rows.filter(u=>{
+    const act = daysSince(u.lastSeen) <= 30;
+    return userFilterState.activity==='active' ? act : !act;
+  });
+  if(search) rows = rows.filter(u=> (u.name||'').toLowerCase().includes(search) || (u.phone||'').includes(search));
+
+  document.getElementById('usersTbody').innerHTML = rows.map(u=>{
+    const active = daysSince(u.lastSeen) <= 30;
+    const bal = walletsData[u.id];
+    return `<tr>
+      <td>${escapeHtml(u.name||'—')}</td>
+      <td class="mono">${escapeHtml(u.phone||'—')}</td>
+      <td><span class="badge ${u.role==='female'?'female':'male'}">${u.role||'—'}</span></td>
+      <td><span class="badge ${u.online?'online':'offline'}">${u.online?'Online':'Offline'}</span></td>
+      <td><span class="badge ${active?'verified':'rejected'}">${active?'Active':'Inactive'}</span></td>
+      <td>${bal!==undefined ? inr(bal) : '<span class="refreshHint">not synced</span>'}</td>
+      <td>${fmtDate(u.lastSeen)}</td>
+      <td>${fmtDate(u.createdAt)}</td>
+    </tr>`;
+  }).join('');
+  if(usersData.length && !rows.length){
+    document.getElementById('usersTbody').innerHTML = `<tr><td colspan="8"><div class="emptyState">No users match these filters.</div></td></tr>`;
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------------- Finance ----------------
+document.getElementById('gstRateInput').addEventListener('change', renderFinance);
+document.getElementById('payoutsInput').addEventListener('change', renderFinance);
+document.getElementById('costsInput').addEventListener('change', renderFinance);
+
+document.getElementById('saveFinanceSettings').addEventListener('click', async ()=>{
+  const gstRate = parseFloat(document.getElementById('gstRateInput').value)||0;
+  const payouts = parseFloat(document.getElementById('payoutsInput').value)||0;
+  const costs = parseFloat(document.getElementById('costsInput').value)||0;
+  try{
+    await setDoc(doc(db,'settings','finance'), { gstRate, payouts, costs, updatedAt: serverTimestamp() }, { merge:true });
+    toast('Finance settings saved.');
+  }catch(e){ toast('Save failed: '+e.message); }
+});
+
+function renderFinance(){
+  const completed = ticketsData.filter(t=>t.status==='completed' && !isAdminTestPhone(t.phone));
+  const pending = ticketsData.filter(t=>t.status==='pending' && !isAdminTestPhone(t.phone));
+  const gross = completed.reduce((s,t)=> s + (Number(t.amount)||0), 0);
+  const pendingSum = pending.reduce((s,t)=> s + (Number(t.amount)||0), 0);
+
+  const gstRate = parseFloat(document.getElementById('gstRateInput').value) || financeSettings.gstRate || 0;
+  const gst = gross - (gross / (1 + gstRate/100));
+  const net = gross - gst;
+
+  const callSpend = txData.filter(t=>t.type==='callCharge').reduce((s,t)=> s + Math.abs(Number(t.amount)||0), 0);
+
+  document.getElementById('fGross').textContent = inr(gross);
+  document.getElementById('fGst').textContent = inr(gst);
+  document.getElementById('fNet').textContent = inr(net);
+  document.getElementById('fCallSpend').textContent = inr(callSpend);
+  document.getElementById('fPending').textContent = inr(pendingSum);
+
+  const payouts = parseFloat(document.getElementById('payoutsInput').value) || 0;
+  const costs = parseFloat(document.getElementById('costsInput').value) || 0;
+  const profit = net - payouts - costs;
+  document.getElementById('pNet').textContent = inr(net);
+  document.getElementById('pPayouts').textContent = '− ' + inr(payouts);
+  document.getElementById('pCosts').textContent = '− ' + inr(costs);
+  document.getElementById('pProfit').textContent = inr(profit);
+
+  const totalWallet = Object.values(walletsData).reduce((s,b)=> s + (Number(b)||0), 0);
+  document.getElementById('totalWalletLiability').textContent = inr(totalWallet);
+
+  document.getElementById('financeCards').innerHTML = `
+    <div class="card accentGreen"><div class="label">Gross Collections</div><div class="value">${inr(gross)}</div><div class="sub">${completed.length} completed recharges</div></div>
+    <div class="card"><div class="label">GST (assumed ${gstRate}%, inclusive)</div><div class="value">${inr(gst)}</div></div>
+    <div class="card"><div class="label">Net Revenue</div><div class="value">${inr(net)}</div></div>
+    <div class="card accentAmber"><div class="label">Estimated Profit</div><div class="value">${inr(profit)}</div><div class="sub">after payouts &amp; costs you enter below</div></div>
+  `;
+
+  document.getElementById('txLoading').style.display = txData.length ? 'none' : 'block';
+  document.getElementById('txTbody').innerHTML = txData.map(t=>`
+    <tr>
+      <td style="width:70%">
+        <div style="font-weight:600;">${escapeHtml(t.name||t.uid||'—')}</div>
+        <div class="refreshHint">${escapeHtml(t.type||'')}${t.note? ' · '+escapeHtml(t.note):''} · ${fmtDate(t.createdAt)}</div>
+      </td>
+      <td style="text-align:right;font-weight:700;color:${(t.amount||0)>=0?'var(--green)':'var(--red)'}">${(t.amount||0)>=0?'+':''}${inr(t.amount)}</td>
+    </tr>
+  `).join('') || `<tr><td><div class="emptyState">No wallet transactions logged yet.</div></td></tr>`;
+}
+
+// ---------------- Recharge tickets ----------------
+let ticketFilter = 'pending';
+document.querySelectorAll('#ticketFilters .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#ticketFilters .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    ticketFilter = chip.dataset.v;
+    renderTickets();
+  });
+});
+
+function renderTickets(){
+  document.getElementById('ticketsLoading').style.display = ticketsData.length ? 'none' : 'block';
+  let rows = ticketsData.slice().sort((a,b)=> (b.createdAt?.toMillis?.()||0) - (a.createdAt?.toMillis?.()||0));
+  if(ticketFilter !== 'all') rows = rows.filter(t=>t.status===ticketFilter);
+
+  document.getElementById('ticketsTbody').innerHTML = rows.map(t=>`
+    <tr>
+      <td>${escapeHtml(t.name||'—')}</td>
+      <td class="mono">${escapeHtml(t.phone||'—')}</td>
+      <td style="font-weight:700;">${inr(t.amount)}</td>
+      <td><span class="badge ${t.status}">${t.status}</span></td>
+      <td>${fmtDate(t.createdAt)}</td>
+      <td>${t.status==='pending' ? `<button class="btn small" data-act="pay" data-id="${t.id}" data-uid="${t.uid}" data-amt="${t.amount}">Mark Paid</button>
+        <button class="btn small danger" data-act="reject" data-id="${t.id}" style="margin-left:6px;">Reject</button>` : (t.paidBy? `<span class="refreshHint">by ${escapeHtml(t.paidBy)}</span>`:'—')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6"><div class="emptyState">No recharge requests here.</div></td></tr>`;
+
+  document.querySelectorAll('#ticketsTbody [data-act="pay"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> markTicketPaid(btn.dataset.id, btn.dataset.uid, parseFloat(btn.dataset.amt)));
+  });
+  document.querySelectorAll('#ticketsTbody [data-act="reject"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> rejectTicket(btn.dataset.id));
+  });
+}
+
+async function markTicketPaid(ticketId, uid, amount){
+  if(!confirm(`Credit ₹${amount} to this user's wallet and mark the ticket as paid?`)) return;
+  try{
+    const walletRef = doc(db,'wallets', uid);
+    const ticketRef = doc(db,'rechargeTickets', ticketId);
+    await runTransaction(db, async (tx)=>{
+      const walletSnap = await tx.get(walletRef);
+      const current = walletSnap.exists() ? (walletSnap.data().balance||0) : 0;
+      tx.set(walletRef, { balance: current + amount, updatedAt: serverTimestamp() }, { merge:true });
+      tx.update(ticketRef, { status:'completed', paidAt: serverTimestamp(), paidBy: auth.currentUser.email });
+    });
+    const ticket = ticketsData.find(t=>t.id===ticketId);
+    await addDoc(collection(db,'walletTransactions'), {
+      uid, name: ticket?.name||'', phone: ticket?.phone||'', type:'recharge', amount,
+      note:'Recharge ticket approved by '+auth.currentUser.email, createdAt: serverTimestamp(), source:'crm'
+    });
+    toast('Wallet credited and ticket marked paid.');
+  }catch(e){ toast('Failed: '+e.message); }
+}
+
+async function rejectTicket(ticketId){
+  if(!confirm('Reject this recharge request?')) return;
+  try{
+    await updateDoc(doc(db,'rechargeTickets', ticketId), { status:'rejected', rejectedAt: serverTimestamp(), rejectedBy: auth.currentUser.email });
+    toast('Ticket rejected.');
+  }catch(e){ toast('Failed: '+e.message); }
+}
+
+// ---------------- KYC ----------------
+let kycFilter = 'pending';
+document.querySelectorAll('#kycFilters .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#kycFilters .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    kycFilter = chip.dataset.v;
+    renderKyc();
+  });
+});
+
+function renderKyc(){
+  document.getElementById('kycLoading').style.display = kycData.length ? 'none' : 'block';
+  let rows = kycData.slice();
+  if(kycFilter !== 'all') rows = rows.filter(k=>k.status===kycFilter);
+
+  document.getElementById('kycTbody').innerHTML = rows.map(k=>`
+    <tr>
+      <td>${escapeHtml(k.name||'—')}</td>
+      <td class="mono">${escapeHtml(k.phone||'—')}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          ${k.idFrontUrl?`<img class="kycThumb" src="${k.idFrontUrl}" data-full="${k.idFrontUrl}" />`:''}
+          ${k.idBackUrl?`<img class="kycThumb" src="${k.idBackUrl}" data-full="${k.idBackUrl}" />`:''}
+          ${k.selfieUrl?`<img class="kycThumb" src="${k.selfieUrl}" data-full="${k.selfieUrl}" />`:''}
+        </div>
+      </td>
+      <td><span class="badge ${k.status}">${k.status}</span></td>
+      <td>${fmtDate(k.submittedAt)}</td>
+      <td>${k.status==='pending' ? `<button class="btn small" data-act="verify" data-id="${k.id}">Approve</button>
+        <button class="btn small danger" data-act="rejectkyc" data-id="${k.id}" style="margin-left:6px;">Reject</button>` : '—'}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6"><div class="emptyState">No KYC submissions here.</div></td></tr>`;
+
+  document.querySelectorAll('#kycTbody img.kycThumb').forEach(img=>{
+    img.addEventListener('click', ()=>{
+      document.getElementById('imgModalBody').innerHTML = `<img src="${img.dataset.full}" /><button class="btn secondary full" id="closeModal">Close</button>`;
+      document.getElementById('imgModal').classList.add('open');
+      document.getElementById('closeModal').addEventListener('click', ()=> document.getElementById('imgModal').classList.remove('open'));
+    });
+  });
+  document.querySelectorAll('#kycTbody [data-act="verify"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{ await updateDoc(doc(db,'kyc',btn.dataset.id), { status:'verified', reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.email }); toast('Marked verified.'); }
+      catch(e){ toast('Failed: '+e.message); }
+    });
+  });
+  document.querySelectorAll('#kycTbody [data-act="rejectkyc"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{ await updateDoc(doc(db,'kyc',btn.dataset.id), { status:'rejected', reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.email }); toast('Marked rejected.'); }
+      catch(e){ toast('Failed: '+e.message); }
+    });
+  });
+}
+
+document.getElementById('imgModal').addEventListener('click', (e)=>{
+  if(e.target.id==='imgModal') e.target.classList.remove('open');
+});
+</script>
+</body>
+</html>
