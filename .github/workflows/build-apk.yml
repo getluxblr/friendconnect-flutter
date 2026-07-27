@@ -45,6 +45,12 @@ jobs:
           # ...then actually apply it in the app module's plugins {} block.
           sed -i '/id "dev.flutter.flutter-gradle-plugin"/a\    id "com.google.gms.google-services"' android/app/build.gradle
 
+          # Firebase/AndroidX libraries ship Kotlin metadata newer than the
+          # template's default Kotlin plugin version, causing
+          # "compiled with an incompatible version of Kotlin" errors.
+          # Bump it regardless of whatever version the template pinned.
+          sed -i -E 's/(id "org\.jetbrains\.kotlin\.android" version ")[^"]+(" apply false)/\11.9.24\2/' android/settings.gradle
+
           # flutter_webrtc's native Android library needs API 24+. Modern
           # templates use property-assignment syntax (minSdk = ...) rather
           # than the old minSdkVersion(...) method call.
