@@ -36,18 +36,26 @@ jobs:
           # Drop the Firebase Android config into the generated project.
           cp google-services.json android/app/google-services.json
 
-          # Add the google-services Gradle plugin classpath (project-level).
-          sed -i "0,/dependencies {/{s/dependencies {/dependencies {\n        classpath 'com.google.gms:google-services:4.4.2'/}" android/build.gradle
+          # Modern Flutter templates declare Gradle plugins (with versions)
+          # in settings.gradle's `plugins {}` block, not via an
+          # android/build.gradle buildscript{} classpath. Register the
+          # google-services plugin version there...
+          sed -i '/id "dev.flutter.flutter-plugin-loader"/a\    id "com.google.gms.google-services" version "4.4.2" apply false' android/settings.gradle
 
-          # Apply the plugin in the app module.
-          echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+          # ...then actually apply it in the app module's plugins {} block.
+          sed -i '/id "dev.flutter.flutter-gradle-plugin"/a\    id "com.google.gms.google-services"' android/app/build.gradle
 
-          # flutter_webrtc's native Android library needs API 24+.
+          # flutter_webrtc's native Android library needs API 24+. Modern
+          # templates use property-assignment syntax (minSdk = ...) rather
+          # than the old minSdkVersion(...) method call.
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
 
           # Camera/mic/network permissions for real WebRTC calls.
           sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>\n    <uses-permission android:name="android.permission.BLUETOOTH"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n\n    <application#' android/app/src/main/AndroidManifest.xml
 
+          echo "----- android/settings.gradle -----"
+          cat android/settings.gradle
           echo "----- android/build.gradle -----"
           cat android/build.gradle
           echo "----- android/app/build.gradle -----"
