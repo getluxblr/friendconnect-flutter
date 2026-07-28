@@ -768,10 +768,11 @@ function renderKyc(){
       <td>${escapeHtml(k.name||'—')}</td>
       <td class="mono">${escapeHtml(k.phone||'—')}</td>
       <td>
-        <div style="display:flex;gap:6px;">
-          ${k.idFrontUrl?`<img class="kycThumb" src="${k.idFrontUrl}" data-full="${k.idFrontUrl}" />`:''}
-          ${k.idBackUrl?`<img class="kycThumb" src="${k.idBackUrl}" data-full="${k.idBackUrl}" />`:''}
-          ${k.selfieUrl?`<img class="kycThumb" src="${k.selfieUrl}" data-full="${k.selfieUrl}" />`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${k.aadharFrontUrl?`<img class="kycThumb" title="Aadhaar Front" src="${k.aadharFrontUrl}" data-full="${k.aadharFrontUrl}" />`:''}
+          ${k.aadharBackUrl?`<img class="kycThumb" title="Aadhaar Back" src="${k.aadharBackUrl}" data-full="${k.aadharBackUrl}" />`:''}
+          ${k.panCardUrl?`<img class="kycThumb" title="PAN Card" src="${k.panCardUrl}" data-full="${k.panCardUrl}" />`:''}
+          ${k.selfieUrl?`<img class="kycThumb" title="Selfie" src="${k.selfieUrl}" data-full="${k.selfieUrl}" />`:''}
         </div>
       </td>
       <td><span class="badge ${k.status}">${k.status}</span></td>

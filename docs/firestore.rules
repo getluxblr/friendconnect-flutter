@@ -34,11 +34,22 @@ service cloud.firestore {
     }
 
     // KYC documents — owner submits (status always starts 'pending'); only
-    // the CRM admin can approve/reject.
+    // the CRM admin can approve/reject. The owner may ALSO flip their own
+    // pending submission to 'verified' themselves, but ONLY once the
+    // server clock (request.time) shows 12 real hours have passed since
+    // the server-stamped submittedAt — this is the client-side 12h
+    // auto-approval SLA, and it can't be gamed by the device's local clock
+    // since Firestore evaluates request.time server-side.
     match /kyc/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid);
-      allow update: if isAdmin() || (isOwner(uid) && request.resource.data.status == 'pending');
+      allow update: if isAdmin()
+        || (isOwner(uid) && request.resource.data.status == 'pending')
+        || (isOwner(uid)
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'verified'
+            && resource.data.submittedAt is timestamp
+            && request.time > resource.data.submittedAt + duration.value(12, 'h'));
       allow delete: if false;
     }
 
@@ -53,12 +64,14 @@ service cloud.firestore {
     }
 
     // Withdrawal requests (earnings payout to bank/UPI) — owner raises a
-    // ticket with their payout details; only the CRM admin can list all
-    // requests, mark them paid, or reject them.
+    // ticket with their payout details; the CRM admin can list all requests,
+    // mark them paid, or reject them. The owner may ALSO list (listen to)
+    // just their own tickets, so the app can pop up a notification the
+    // moment the CRM marks their request paid/rejected.
     match /withdrawalTickets/{ticketId} {
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
       allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow list: if isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if false;
     }
