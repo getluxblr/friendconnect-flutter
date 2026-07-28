@@ -17,6 +17,7 @@ jobs:
           cp -r _src/lib .
           cp _src/pubspec.yaml .
           cp _src/.gitignore . || true
+          cp -r _src/assets . || true
           rm -rf _src friendconnect_flutter_source.zip
 
       - uses: actions/setup-java@v4
