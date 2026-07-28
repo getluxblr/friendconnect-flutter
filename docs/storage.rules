@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // KYC documents — only the owner can upload their own ID/selfie
+    // photos, and only the owner can read them back. The CRM never reads
+    // through these rules: submitKyc() stores the public download URL
+    // (with an access token baked in) directly on the kyc/{uid} Firestore
+    // doc, and the admin dashboard just uses that URL as an <img> src.
+    match /kyc/{uid}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

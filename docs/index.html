@@ -131,6 +131,7 @@
       <div class="navBtn" data-page="users">Users</div>
       <div class="navBtn" data-page="finance">Finance &amp; Revenue</div>
       <div class="navBtn" data-page="recharge">Recharge Requests</div>
+      <div class="navBtn" data-page="withdrawals">Withdrawal Requests</div>
       <div class="navBtn" data-page="kyc">KYC Review</div>
       <div class="sideFoot">
         <div class="email" id="adminEmailLabel"></div>
@@ -245,6 +246,28 @@
             <tbody id="ticketsTbody"></tbody>
           </table>
           <div class="loadingRow" id="ticketsLoading">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ===== WITHDRAWALS ===== -->
+      <div class="page" id="page-withdrawals">
+        <h2 class="pageTitle">Withdrawal Requests</h2>
+        <p class="pageSub">Users raise a payout request with bank/UPI details — process the transfer manually, then mark it Paid or Rejected here.</p>
+        <div class="noteBox">
+          <b>Note:</b> earnings balances live on each user's device (they're not synced to Firestore), so marking a request Paid or Rejected here is a record-keeping action for your ops team — it does not itself move money. Use the bank/UPI details shown to actually send the payout within 4 hours of the request.
+        </div>
+        <div class="filterRow" id="withdrawalFilters">
+          <span class="chip active" data-v="pending">Pending</span>
+          <span class="chip" data-v="paid">Paid</span>
+          <span class="chip" data-v="rejected">Rejected</span>
+          <span class="chip" data-v="all">All</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Amount</th><th>Method</th><th>Payout details</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead>
+            <tbody id="withdrawalsTbody"></tbody>
+          </table>
+          <div class="loadingRow" id="withdrawalsLoading">Loading…</div>
         </div>
       </div>
 
@@ -389,6 +412,7 @@ document.querySelectorAll('.navBtn').forEach(btn=>{
 let usersData = [];      // from users collection
 let walletsData = {};    // uid -> balance
 let ticketsData = [];    // rechargeTickets
+let withdrawalsData = []; // withdrawalTickets
 let kycData = [];        // kyc docs
 let txData = [];         // walletTransactions (recent)
 let financeSettings = { gstRate: 18, payouts: 0, costs: 0 };
@@ -411,6 +435,11 @@ function startAllListeners(){
     ticketsData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
     renderTickets(); renderFinance(); renderOverview();
   }, (err)=> toast('Recharge tickets read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(collection(db,'withdrawalTickets'), (snap)=>{
+    withdrawalsData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderWithdrawals(); renderOverview();
+  }, (err)=> toast('Withdrawal tickets read failed: '+err.message)));
 
   unsubs.push(onSnapshot(collection(db,'kyc'), (snap)=>{
     kycData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -460,6 +489,7 @@ function renderOverview(){
     <div class="card accentGreen"><div class="label">Online Now</div><div class="value">${online}</div></div>
     <div class="card"><div class="label">Offline</div><div class="value">${total-online}</div></div>
     <div class="card accentAmber"><div class="label">Pending Recharge Tickets</div><div class="value">${ticketsData.filter(t=>t.status==='pending').length}</div></div>
+    <div class="card accentAmber"><div class="label">Pending Withdrawal Requests</div><div class="value">${withdrawalsData.filter(w=>w.status==='pending').length}</div></div>
     <div class="card accentAmber"><div class="label">Pending KYC</div><div class="value">${kycData.filter(k=>k.status==='pending').length}</div></div>
   `;
 
@@ -646,6 +676,74 @@ async function rejectTicket(ticketId){
   try{
     await updateDoc(doc(db,'rechargeTickets', ticketId), { status:'rejected', rejectedAt: serverTimestamp(), rejectedBy: auth.currentUser.email });
     toast('Ticket rejected.');
+  }catch(e){ toast('Failed: '+e.message); }
+}
+
+// ---------------- Withdrawal requests ----------------
+let withdrawalFilter = 'pending';
+document.querySelectorAll('#withdrawalFilters .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#withdrawalFilters .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    withdrawalFilter = chip.dataset.v;
+    renderWithdrawals();
+  });
+});
+
+function payoutDetailsHtml(w){
+  const d = w.details || {};
+  if(w.method === 'bank'){
+    const acc = d.accountNumber || '';
+    const masked = acc.length > 4 ? '••••' + acc.slice(-4) : acc;
+    return `<div style="font-weight:600;">${escapeHtml(d.accountHolderName||'—')}</div>
+      <div class="refreshHint">A/C ${escapeHtml(masked)} · ${escapeHtml(d.ifsc||'—')} · ${escapeHtml(d.branch||'—')}</div>`;
+  }
+  if(w.method === 'upi'){
+    return `<div style="font-weight:600;">${escapeHtml(d.name||'—')}</div><div class="refreshHint">${escapeHtml(d.upiId||'—')}</div>`;
+  }
+  return '<span class="refreshHint">—</span>';
+}
+
+function renderWithdrawals(){
+  document.getElementById('withdrawalsLoading').style.display = withdrawalsData.length ? 'none' : 'block';
+  let rows = withdrawalsData.slice().sort((a,b)=> (b.createdAt?.toMillis?.()||0) - (a.createdAt?.toMillis?.()||0));
+  if(withdrawalFilter !== 'all') rows = rows.filter(w=>w.status===withdrawalFilter);
+
+  document.getElementById('withdrawalsTbody').innerHTML = rows.map(w=>`
+    <tr>
+      <td>${escapeHtml(w.name||'—')}</td>
+      <td class="mono">${escapeHtml(w.phone||'—')}</td>
+      <td style="font-weight:700;">${inr(w.amount)}</td>
+      <td><span class="badge ${w.method==='upi'?'female':'male'}">${escapeHtml((w.method||'—').toUpperCase())}</span></td>
+      <td>${payoutDetailsHtml(w)}</td>
+      <td><span class="badge ${w.status==='paid'?'completed':w.status}">${w.status}</span></td>
+      <td>${fmtDate(w.createdAt)}</td>
+      <td>${w.status==='pending' ? `<button class="btn small" data-act="paywithdrawal" data-id="${w.id}">Mark Paid</button>
+        <button class="btn small danger" data-act="rejectwithdrawal" data-id="${w.id}" style="margin-left:6px;">Reject</button>` : (w.processedBy? `<span class="refreshHint">by ${escapeHtml(w.processedBy)}</span>`:'—')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="8"><div class="emptyState">No withdrawal requests here.</div></td></tr>`;
+
+  document.querySelectorAll('#withdrawalsTbody [data-act="paywithdrawal"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> markWithdrawalPaid(btn.dataset.id));
+  });
+  document.querySelectorAll('#withdrawalsTbody [data-act="rejectwithdrawal"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> rejectWithdrawal(btn.dataset.id));
+  });
+}
+
+async function markWithdrawalPaid(ticketId){
+  if(!confirm('Confirm you have sent this payout, and mark it Paid?')) return;
+  try{
+    await updateDoc(doc(db,'withdrawalTickets', ticketId), { status:'paid', paidAt: serverTimestamp(), processedBy: auth.currentUser.email });
+    toast('Withdrawal marked paid.');
+  }catch(e){ toast('Failed: '+e.message); }
+}
+
+async function rejectWithdrawal(ticketId){
+  if(!confirm('Reject this withdrawal request?')) return;
+  try{
+    await updateDoc(doc(db,'withdrawalTickets', ticketId), { status:'rejected', rejectedAt: serverTimestamp(), processedBy: auth.currentUser.email });
+    toast('Withdrawal rejected.');
   }catch(e){ toast('Failed: '+e.message); }
 }
 
