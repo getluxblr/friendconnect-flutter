@@ -95,8 +95,11 @@ jobs:
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle
 
-          # Camera/mic/network permissions for real WebRTC calls.
-          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>\n    <uses-permission android:name="android.permission.BLUETOOTH"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n\n    <application#' android/app/src/main/AndroidManifest.xml
+          # Camera/mic/network permissions for real WebRTC calls, plus
+          # POST_NOTIFICATIONS (required at runtime on Android 13+ for the
+          # app to show any notification at all) and VIBRATE for the
+          # incoming-call/announcement notification channels.
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>\n    <uses-permission android:name="android.permission.BLUETOOTH"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.VIBRATE"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n\n    <application#' android/app/src/main/AndroidManifest.xml
 
           echo "----- android/settings.gradle -----"
           cat android/settings.gradle
@@ -119,4 +122,3 @@ jobs:
         with:
           name: friendconnect-apk
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-Page_Down
