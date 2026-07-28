@@ -73,5 +73,20 @@ jobs:
             echo "No changes to docs/app — skipping commit."
           else
             git commit -m "Auto-build: deploy Flutter web app to docs/app [skip ci]"
-            git push
+            # main can move (another workflow run's own auto-commit, or a
+            # fresh push) between checkout and this push, which makes a
+            # plain `git push` fail with "rejected (fetch first)" even
+            # though the build itself succeeded. Rebase onto the latest
+            # main and retry a few times before giving up, instead of
+            # failing the whole job over a harmless race.
+            attempt=1
+            until git push; do
+              if [ "$attempt" -ge 5 ]; then
+                echo "git push failed after $attempt attempts — giving up."
+                exit 1
+              fi
+              echo "Push rejected (attempt $attempt) — pulling and retrying..."
+              git pull --rebase origin main
+              attempt=$((attempt + 1))
+            done
           fi
