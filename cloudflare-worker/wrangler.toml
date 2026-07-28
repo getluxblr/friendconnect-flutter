@@ -1,0 +1,8 @@
+# Only needed if deploying via the `wrangler` CLI instead of pasting
+# index.js into the Cloudflare dashboard's Quick Edit. Either way, the
+# GCP_CLIENT_EMAIL / GCP_PRIVATE_KEY / GCP_PROJECT_ID / RELAY_SECRET
+# values below must be set as *secrets* (never committed here) — see the
+# comment at the top of index.js for where to get each one.
+name = "friendconnect-push-relay"
+main = "index.js"
+compatibility_date = "2024-09-01"
