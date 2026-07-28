@@ -10,7 +10,7 @@ service cloud.firestore {
     }
 
     // Public-ish profile doc used for the online peer directory. Never
-    // stores wallet/financial data — that lives in its own collection below.
+    // stores wallet/financial data - that lives in its own collection below.
     match /users/{uid} {
       allow get: if isOwner(uid) || isAdmin();
       allow list: if isSignedIn(); // needed for the "who's online" peer directory query
@@ -18,7 +18,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Wallet balance — private. Owner and the CRM admin can read/write it;
+    // Wallet balance - private. Owner and the CRM admin can read/write it;
     // it is NEVER exposed through the users-collection list query above.
     match /wallets/{uid} {
       allow read: if isOwner(uid) || isAdmin();
@@ -33,11 +33,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // KYC documents — owner submits (status always starts 'pending'); only
+    // KYC documents - owner submits (status always starts 'pending'); only
     // the CRM admin can approve/reject. The owner may ALSO flip their own
     // pending submission to 'verified' themselves, but ONLY once the
     // server clock (request.time) shows 12 real hours have passed since
-    // the server-stamped submittedAt — this is the client-side 12h
+    // the server-stamped submittedAt - this is the client-side 12h
     // auto-approval SLA, and it can't be gamed by the device's local clock
     // since Firestore evaluates request.time server-side.
     match /kyc/{uid} {
@@ -53,7 +53,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Recharge tickets — owner raises a ticket; only the CRM admin can list
+    // Recharge tickets - owner raises a ticket; only the CRM admin can list
     // all tickets, mark them paid, or reject them.
     match /rechargeTickets/{ticketId} {
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
@@ -63,7 +63,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Withdrawal requests (earnings payout to bank/UPI) — owner raises a
+    // Withdrawal requests (earnings payout to bank/UPI) - owner raises a
     // ticket with their payout details; the CRM admin can list all requests,
     // mark them paid, or reject them. The owner may ALSO list (listen to)
     // just their own tickets, so the app can pop up a notification the
@@ -76,8 +76,26 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Live call signaling. The caller creates a 'ringing' session addressed
+    // to the callee; the callee's device runs a live query for sessions
+    // where they are the callee (that's what makes an incoming call show up
+    // on their screen), and both sides then watch that one doc for status
+    // changes (accepted / declined / busy / timeout / cancelled / ended).
+    // Only the two people on the call can ever read or write their session.
+    match /callSessions/{sessionId} {
+      allow create: if isSignedIn()
+        && request.resource.data.callerUid == request.auth.uid
+        && request.resource.data.status == 'ringing';
+      allow get: if isSignedIn()
+        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.calleeUid == request.auth.uid;
+      allow update: if isSignedIn()
+        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
+      allow delete: if false;
+    }
+
     // Admin allowlist. A signed-in user may only check THEIR OWN admin doc
-    // (so the CRM can confirm "am I an admin?" after login) — nobody can
+    // (so the CRM can confirm "am I an admin?" after login) - nobody can
     // list all admins or write to this collection from a client.
     match /admins/{uid} {
       allow get: if isOwner(uid);
