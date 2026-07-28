@@ -108,6 +108,10 @@ jobs:
           # incoming-call/announcement notification channels.
           sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>\n    <uses-permission android:name="android.permission.BLUETOOTH"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.VIBRATE"/>\n    <uses-feature android:name="android.hardware.camera" android:required="false"/>\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>\n\n    <application#' android/app/src/main/AndroidManifest.xml
 
+          # Default small icon FCM falls back to for a push notification
+          # that doesn't specify one explicitly (avoids a blank/white icon).
+          sed -i '\#android:icon="@mipmap/ic_launcher">#a\        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@mipmap/ic_launcher"/>' android/app/src/main/AndroidManifest.xml
+
           echo "----- android/settings.gradle -----"
           cat android/settings.gradle
           echo "----- android/build.gradle -----"
