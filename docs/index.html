@@ -133,6 +133,7 @@
       <div class="navBtn" data-page="recharge">Recharge Requests</div>
       <div class="navBtn" data-page="withdrawals">Withdrawal Requests</div>
       <div class="navBtn" data-page="kyc">KYC Review</div>
+      <div class="navBtn" data-page="announcements">Announcements</div>
       <div class="sideFoot">
         <div class="email" id="adminEmailLabel"></div>
         <button class="btn secondary full small" id="logoutBtn">Sign out</button>
@@ -290,6 +291,28 @@
         </div>
       </div>
 
+      <!-- ===== ANNOUNCEMENTS ===== -->
+      <div class="page" id="page-announcements">
+        <h2 class="pageTitle">Announcements</h2>
+        <p class="pageSub">Type a message and send it — it pops up for every signed-in user, on both the phone app and the web app, the moment it's sent (or the next time they open the app if it was closed).</p>
+        <div class="noteBox">
+          <b>Note:</b> this reaches users while the app is open (a live connection), same as how incoming calls arrive — it is not an OS push notification for a fully closed app. If someone had the app closed, they'll see it as soon as they next open it.
+        </div>
+        <div class="panelBox">
+          <h3>Send a new announcement</h3>
+          <textarea id="announcementText" placeholder="e.g. We'll be down for maintenance tonight 11 PM–12 AM." style="width:100%;min-height:90px;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:13.5px;font-family:inherit;resize:vertical;outline:none;margin-bottom:12px;"></textarea>
+          <button class="btn" id="sendAnnouncementBtn">Send to all users</button>
+        </div>
+        <div class="sectionHead"><h3>Previously sent</h3></div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Message</th><th>Sent by</th><th>Sent</th></tr></thead>
+            <tbody id="announcementsTbody"></tbody>
+          </table>
+          <div class="loadingRow" id="announcementsLoading">Loading…</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -414,6 +437,7 @@ let walletsData = {};    // uid -> balance
 let ticketsData = [];    // rechargeTickets
 let withdrawalsData = []; // withdrawalTickets
 let kycData = [];        // kyc docs
+let announcementsData = []; // announcements (broadcast popups)
 let txData = [];         // walletTransactions (recent)
 let financeSettings = { gstRate: 18, payouts: 0, costs: 0 };
 
@@ -445,6 +469,11 @@ function startAllListeners(){
     kycData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
     renderKyc(); renderOverview();
   }, (err)=> toast('KYC read failed: '+err.message)));
+
+  unsubs.push(onSnapshot(query(collection(db,'announcements'), orderBy('createdAt','desc'), limit(50)), (snap)=>{
+    announcementsData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    renderAnnouncements();
+  }, (err)=> toast('Announcements read failed: '+err.message)));
 
   unsubs.push(onSnapshot(query(collection(db,'walletTransactions'), orderBy('createdAt','desc'), limit(30)), (snap)=>{
     txData = snap.docs.map(d=>({ id:d.id, ...d.data() }));
@@ -806,6 +835,38 @@ function renderKyc(){
 document.getElementById('imgModal').addEventListener('click', (e)=>{
   if(e.target.id==='imgModal') e.target.classList.remove('open');
 });
+
+// ---------------- Announcements ----------------
+document.getElementById('sendAnnouncementBtn').addEventListener('click', sendAnnouncement);
+
+async function sendAnnouncement(){
+  const input = document.getElementById('announcementText');
+  const message = input.value.trim();
+  if(!message){ toast('Type a message first.'); return; }
+  const btn = document.getElementById('sendAnnouncementBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    await addDoc(collection(db,'announcements'), {
+      message,
+      createdAt: serverTimestamp(),
+      createdBy: auth.currentUser.email
+    });
+    input.value = '';
+    toast('Sent — it will pop up for every signed-in user.');
+  }catch(e){ toast('Failed to send: '+e.message); }
+  btn.disabled = false; btn.textContent = 'Send to all users';
+}
+
+function renderAnnouncements(){
+  document.getElementById('announcementsLoading').style.display = announcementsData.length ? 'none' : 'block';
+  document.getElementById('announcementsTbody').innerHTML = announcementsData.map(a=>`
+    <tr>
+      <td style="max-width:420px;white-space:pre-wrap;">${escapeHtml(a.message||'—')}</td>
+      <td>${escapeHtml(a.createdBy||'—')}</td>
+      <td>${fmtDate(a.createdAt)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="3"><div class="emptyState">No announcements sent yet.</div></td></tr>`;
+}
 </script>
 </body>
 </html>
