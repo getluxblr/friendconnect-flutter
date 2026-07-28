@@ -1,112 +1,138 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
+match /databases/{database}/documents {
 
-    function isSignedIn() { return request.auth != null; }
-    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
-    function isAdmin() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
+function isSignedIn() { return request.auth != null; }
+function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+function isAdmin() {
+return isSignedIn() &&
+exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+}
 
-    // Public-ish profile doc used for the online peer directory. Never
-    // stores wallet/financial data - that lives in its own collection below.
-    match /users/{uid} {
-      allow get: if isOwner(uid) || isAdmin();
-      allow list: if isSignedIn(); // needed for the "who's online" peer directory query
-      allow create, update: if isOwner(uid) || isAdmin();
-      allow delete: if false;
-    }
+// Public-ish profile doc used for the online peer directory. Never
+// stores wallet/financial data — that lives in its own collection below.
+match /users/{uid} {
+allow get: if isOwner(uid) || isAdmin();
+allow list: if isSignedIn(); // needed for the "who's online" peer directory query
+allow create, update: if isOwner(uid) || isAdmin();
+allow delete: if false;
+}
 
-    // Wallet balance - private. Owner and the CRM admin can read/write it;
-    // it is NEVER exposed through the users-collection list query above.
-    match /wallets/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid) || isAdmin();
-    }
+// Wallet balance — private. Owner and the CRM admin can read/write it;
+// it is NEVER exposed through the users-collection list query above.
+match /wallets/{uid} {
+allow read: if isOwner(uid) || isAdmin();
+allow write: if isOwner(uid) || isAdmin();
+}
 
-    // Wallet ledger (recharges + call charges) used for the CRM finance report.
-    match /walletTransactions/{txId} {
-      allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow list: if isAdmin();
-      allow create: if isAdmin() || (isSignedIn() && request.resource.data.uid == request.auth.uid);
-      allow update, delete: if isAdmin();
-    }
+// Wallet ledger (recharges + call charges) used for the CRM finance report.
+match /walletTransactions/{txId} {
+allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+allow list: if isAdmin();
+allow create: if isAdmin() || (isSignedIn() && request.resource.data.uid == request.auth.uid);
+allow update, delete: if isAdmin();
+}
 
-    // KYC documents - owner submits (status always starts 'pending'); only
-    // the CRM admin can approve/reject. The owner may ALSO flip their own
-    // pending submission to 'verified' themselves, but ONLY once the
-    // server clock (request.time) shows 12 real hours have passed since
-    // the server-stamped submittedAt - this is the client-side 12h
-    // auto-approval SLA, and it can't be gamed by the device's local clock
-    // since Firestore evaluates request.time server-side.
-    match /kyc/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid);
-      allow update: if isAdmin()
-        || (isOwner(uid) && request.resource.data.status == 'pending')
-        || (isOwner(uid)
-            && resource.data.status == 'pending'
-            && request.resource.data.status == 'verified'
-            && resource.data.submittedAt is timestamp
-            && request.time > resource.data.submittedAt + duration.value(12, 'h'));
-      allow delete: if false;
-    }
+// KYC documents — owner submits (status always starts 'pending'); only
+// the CRM admin can approve/reject. The owner may ALSO flip their own
+// pending submission to 'verified' themselves, but ONLY once the
+// server clock (request.time) shows 12 real hours have passed since
+// the server-stamped submittedAt — this is the client-side 12h
+// auto-approval SLA, and it can't be gamed by the device's local clock
+// since Firestore evaluates request.time server-side.
+match /kyc/{uid} {
+allow read: if isOwner(uid) || isAdmin();
+allow create: if isOwner(uid);
+allow update: if isAdmin()
+|| (isOwner(uid) && request.resource.data.status == 'pending')
+|| (isOwner(uid)
+&& resource.data.status == 'pending'
+&& request.resource.data.status == 'verified'
+&& resource.data.submittedAt is timestamp
+&& request.time > resource.data.submittedAt + duration.value(12, 'h'));
+allow delete: if false;
+}
 
-    // Recharge tickets - owner raises a ticket; only the CRM admin can list
-    // all tickets, mark them paid, or reject them.
-    match /rechargeTickets/{ticketId} {
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
-      allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow list: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
+// Recharge tickets — owner raises a ticket; only the CRM admin can list
+// all tickets, mark them paid, or reject them.
+match /rechargeTickets/{ticketId} {
+allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
+allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+allow list: if isAdmin();
+allow update: if isAdmin();
+allow delete: if false;
+}
 
-    // Withdrawal requests (earnings payout to bank/UPI) - owner raises a
-    // ticket with their payout details; the CRM admin can list all requests,
-    // mark them paid, or reject them. The owner may ALSO list (listen to)
-    // just their own tickets, so the app can pop up a notification the
-    // moment the CRM marks their request paid/rejected.
-    match /withdrawalTickets/{ticketId} {
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
-      allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow list: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow update: if isAdmin();
-      allow delete: if false;
-    }
+// Withdrawal requests (earnings payout to bank/UPI) — owner raises a
+// ticket with their payout details; the CRM admin can list all requests,
+// mark them paid, or reject them. The owner may ALSO list (listen to)
+// just their own tickets, so the app can pop up a notification the
+// moment the CRM marks their request paid/rejected.
+match /withdrawalTickets/{ticketId} {
+allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending';
+allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+allow list: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+allow update: if isAdmin();
+allow delete: if false;
+}
 
-    // Live call signaling. The caller creates a 'ringing' session addressed
-    // to the callee; the callee's device runs a live query for sessions
-    // where they are the callee (that's what makes an incoming call show up
-    // on their screen), and both sides then watch that one doc for status
-    // changes (accepted / declined / busy / timeout / cancelled / ended).
-    // Only the two people on the call can ever read or write their session.
-    match /callSessions/{sessionId} {
-      allow create: if isSignedIn()
-        && request.resource.data.callerUid == request.auth.uid
-        && request.resource.data.status == 'ringing';
-      allow get: if isSignedIn()
-        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
-      allow list: if isSignedIn() && resource.data.calleeUid == request.auth.uid;
-      allow update: if isSignedIn()
-        && (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
-      allow delete: if false;
-    }
+// Live call signaling. The caller creates a 'ringing' session addressed
+// to the callee; the callee's device runs a live query for sessions
+// where they are the callee (that's what makes an incoming call show up
+// on their screen), and both sides then watch that one doc for status
+// changes (accepted / declined / busy / timeout / cancelled / ended).
+// Only the two people on the call can ever read or write their session.
+match /callSessions/{sessionId} {
+allow create: if isSignedIn()
+&& request.resource.data.callerUid == request.auth.uid
+&& request.resource.data.status == 'ringing';
+allow get: if isSignedIn()
+&& (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
+allow list: if isSignedIn() && resource.data.calleeUid == request.auth.uid; // matches the callee's "who's calling me" query
+allow update: if isSignedIn()
+&& (resource.data.callerUid == request.auth.uid || resource.data.calleeUid == request.auth.uid);
+allow delete: if false;
 
-    // Admin allowlist. A signed-in user may only check THEIR OWN admin doc
-    // (so the CRM can confirm "am I an admin?" after login) - nobody can
-    // list all admins or write to this collection from a client.
-    match /admins/{uid} {
-      allow get: if isOwner(uid);
-      allow list, write: if false;
-    }
+// WebRTC ICE candidates exchanged while establishing the actual
+// audio/video connection for this session. Rules don't cascade to
+// subcollections in Firestore, so these need their own match blocks —
+// gated on the SAME "am I one of the two people on this call?" check
+// via get() on the parent session doc. Candidates are write-once
+// (added, never edited) and cleaned up by the client when the call
+// ends, so no update is ever needed.
+match /callerCandidates/{candidateId} {
+allow read, create: if isSignedIn()
+&& (get(/databases/$(database)/documents/callSessions/$(sessionId)).data.callerUid == request.auth.uid
+|| get(/databases/$(database)/documents/callSessions/$(sessionId)).data.calleeUid == request.auth.uid);
+allow update: if false;
+allow delete: if isSignedIn()
+&& (get(/databases/$(database)/documents/callSessions/$(sessionId)).data.callerUid == request.auth.uid
+|| get(/databases/$(database)/documents/callSessions/$(sessionId)).data.calleeUid == request.auth.uid);
+}
+match /calleeCandidates/{candidateId} {
+allow read, create: if isSignedIn()
+&& (get(/databases/$(database)/documents/callSessions/$(sessionId)).data.callerUid == request.auth.uid
+|| get(/databases/$(database)/documents/callSessions/$(sessionId)).data.calleeUid == request.auth.uid);
+allow update: if false;
+allow delete: if isSignedIn()
+&& (get(/databases/$(database)/documents/callSessions/$(sessionId)).data.callerUid == request.auth.uid
+|| get(/databases/$(database)/documents/callSessions/$(sessionId)).data.calleeUid == request.auth.uid);
+}
+}
 
-    // Editable finance settings (GST rate, payouts, operating costs) used
-    // by the CRM's profit estimator.
-    match /settings/{docId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-  }
+// Admin allowlist. A signed-in user may only check THEIR OWN admin doc
+// (so the CRM can confirm "am I an admin?" after login) — nobody can
+// list all admins or write to this collection from a client.
+match /admins/{uid} {
+allow get: if isOwner(uid);
+allow list, write: if false;
+}
+
+// Editable finance settings (GST rate, payouts, operating costs) used
+// by the CRM's profit estimator.
+match /settings/{docId} {
+allow read: if isAdmin();
+allow write: if isAdmin();
+}
+}
 }
