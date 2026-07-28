@@ -1,0 +1,76 @@
+name: Build Web App
+
+# Builds the same FriendConnect app as a Flutter Web bundle and publishes it
+# straight into docs/app/ on main — GitHub Pages is already configured to
+# serve the /docs folder on this branch (that's how the CRM at docs/index.html
+# is hosted), so anything committed under docs/app/ goes live automatically
+# at https://getluxblr.github.io/friendconnect-flutter/app/ without any
+# separate Pages configuration.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project source
+        run: |
+          unzip -o friendconnect_flutter_source.zip -d _src
+          cp -r _src/lib .
+          cp _src/pubspec.yaml .
+          rm -rf _src
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      # This project intentionally ships without a web/ folder so the build
+      # always uses a fresh, matching web scaffold instead of hand-written
+      # files that could drift out of date — same reasoning as the Android
+      # platform folder in build-apk.yml.
+      - name: Generate Web platform project
+        run: flutter create --platforms=web --project-name friendconnect .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Hosted at a sub-path (…/friendconnect-flutter/app/), not the domain
+      # root, so every asset/script reference needs that base href baked in
+      # or the page loads with 404s for main.dart.js etc.
+      - name: Build release Web bundle
+        run: flutter build web --release --base-href /friendconnect-flutter/app/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: friendconnect-web
+          path: build/web
+
+      # Publish straight to docs/app/ so GitHub Pages' existing "deploy from
+      # /docs on main" pipeline picks it up on its own. [skip ci] on the bot
+      # commit prevents this push from re-triggering this workflow (and
+      # build-apk.yml) in a loop.
+      - name: Deploy to docs/app
+        run: |
+          rm -rf docs/app
+          mkdir -p docs/app
+          cp -r build/web/. docs/app/
+          # Disable Jekyll processing so GitHub Pages serves the compiled
+          # JS/asset files as-is instead of trying to run them through Jekyll.
+          touch .nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/app .nojekyll
+          if git diff --cached --quiet; then
+            echo "No changes to docs/app — skipping commit."
+          else
+            git commit -m "Auto-build: deploy Flutter web app to docs/app [skip ci]"
+            git push
+          fi
