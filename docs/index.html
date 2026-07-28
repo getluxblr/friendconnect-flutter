@@ -347,6 +347,29 @@ const db = getFirestore(app);
 
 const ADMIN_TEST_PHONE = "6363958868";
 
+// Free stand-in for a paid Firebase Cloud Function: pushes a real
+// notification to a user's device via a small Cloudflare Worker (see
+// cloudflare-worker/index.js) the instant an announcement is sent here,
+// so it reaches everyone even if they don't have the app open. Must match
+// the same two values set in the Flutter app's lib/services/push_relay.dart
+// and on the Worker itself (Settings → Variables → RELAY_SECRET). Until
+// both are filled in, this quietly does nothing — announcements still work
+// as before, they just won't reach closed apps yet.
+const PUSH_RELAY_URL = "https://REPLACE_ME.workers.dev";
+const PUSH_RELAY_SECRET = "REPLACE_ME_TOO";
+const PUSH_RELAY_CONFIGURED = !PUSH_RELAY_URL.includes("REPLACE_ME") && !PUSH_RELAY_SECRET.includes("REPLACE_ME");
+
+async function pushToRelay(token, title, message, data, channelId){
+  if(!PUSH_RELAY_CONFIGURED || !token) return;
+  try{
+    await fetch(PUSH_RELAY_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({secret: PUSH_RELAY_SECRET, token, title, message, data: data||{}, channelId})
+    });
+  }catch(e){ /* best-effort — in-app delivery for open apps is unaffected */ }
+}
+
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -853,6 +876,15 @@ async function sendAnnouncement(){
     });
     input.value = '';
     toast('Sent — it will pop up for every signed-in user.');
+    // Anyone with the app open gets this instantly via its own Firestore
+    // listener already — this covers the ones who don't, via a real push.
+    if(PUSH_RELAY_CONFIGURED){
+      usersData.forEach(u=>{
+        if(!u.fcmToken) return;
+        const greetingName = (u.name && u.name !== 'You') ? u.name : 'there';
+        pushToRelay(u.fcmToken, `Hey ${greetingName}`, message, {type:'announcement'}, 'friendconnect_announcements');
+      });
+    }
   }catch(e){ toast('Failed to send: '+e.message); }
   btn.disabled = false; btn.textContent = 'Send to all users';
 }
