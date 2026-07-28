@@ -25,6 +25,7 @@ jobs:
           unzip -o friendconnect_flutter_source.zip -d _src
           cp -r _src/lib .
           cp _src/pubspec.yaml .
+          cp -r _src/assets . || true
           rm -rf _src
 
       - uses: subosito/flutter-action@v2
