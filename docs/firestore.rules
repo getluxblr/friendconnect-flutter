@@ -134,5 +134,15 @@ match /settings/{docId} {
 allow read: if isAdmin();
 allow write: if isAdmin();
 }
+
+// Admin broadcast announcements (CRM "Announcements" tab). Any
+// signed-in user needs to be able to read/list these so the popup can
+// reach everyone on the app and web build — only an admin may create,
+// edit, or retract one.
+match /announcements/{announcementId} {
+allow read, list: if isSignedIn();
+allow create: if isAdmin();
+allow update, delete: if isAdmin();
+}
 }
 }
