@@ -159,7 +159,10 @@
       <div class="page" id="page-users">
         <h2 class="pageTitle">Users</h2>
         <p class="pageSub">Male / Female filter, active / inactive, online / offline — all in one table.</p>
-        <input class="searchBox" id="userSearch" placeholder="Search name or phone…" />
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <input class="searchBox" id="userSearch" placeholder="Search name or phone…" style="margin-bottom:0;" />
+          <button class="btn small" id="openAddUser" style="margin-bottom:14px;">+ Add user</button>
+        </div>
         <div class="filterRow" id="userFilters">
           <span class="chip active" data-f="gender" data-v="all">All genders</span>
           <span class="chip" data-f="gender" data-v="male">Male</span>
@@ -174,7 +177,7 @@
         <div class="tableWrap">
           <table>
             <thead><tr>
-              <th>Name</th><th>Phone</th><th>Gender</th><th>Status</th><th>Activity</th><th>Wallet ₹</th><th>Last seen</th><th>Joined</th>
+              <th>Name</th><th>Phone</th><th>Gender</th><th>Status</th><th>Activity</th><th>Wallet ₹</th><th>Last seen</th><th>Joined</th><th>Action</th>
             </tr></thead>
             <tbody id="usersTbody"></tbody>
           </table>
@@ -318,6 +321,37 @@
 </div>
 
 <div class="modalOverlay" id="imgModal"><div class="modalBox" id="imgModalBody"></div></div>
+
+<div class="modalOverlay" id="addUserModal">
+  <div class="modalBox">
+    <h3 style="margin-top:0;">Add user</h3>
+    <div class="noteBox" style="margin-bottom:14px;">
+      <b>Note:</b> this creates an in-app profile only — it does not create a real sign-in account (Google/OTP). The person still needs to sign up themselves to actually log in; this is best for test/demo profiles, not real users.
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:12.5px;color:var(--dim);margin-bottom:4px;">Name</label>
+      <input id="newUserName" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;" />
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:12.5px;color:var(--dim);margin-bottom:4px;">Phone</label>
+      <input id="newUserPhone" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;" />
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="display:block;font-size:12.5px;color:var(--dim);margin-bottom:4px;">Gender</label>
+      <select id="newUserGender" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12.5px;color:var(--dim);margin-bottom:4px;">Starting wallet balance (₹)</label>
+      <input id="newUserBalance" type="number" value="0" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;" />
+    </div>
+    <button class="btn full" id="createUserBtn">Create user</button>
+    <button class="btn secondary full small" id="cancelAddUser" style="margin-top:8px;">Cancel</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -329,7 +363,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, onSnapshot, query, where,
-  addDoc, updateDoc, setDoc, runTransaction, serverTimestamp, orderBy, limit
+  addDoc, updateDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -355,8 +389,8 @@ const ADMIN_TEST_PHONE = "6363958868";
 // and on the Worker itself (Settings → Variables → RELAY_SECRET). Until
 // both are filled in, this quietly does nothing — announcements still work
 // as before, they just won't reach closed apps yet.
-const PUSH_RELAY_URL = "https://REPLACE_ME.workers.dev";
-const PUSH_RELAY_SECRET = "REPLACE_ME_TOO";
+const PUSH_RELAY_URL = "https://falling-dust-259e.getlux-blr.workers.dev";
+const PUSH_RELAY_SECRET = "615fadaa3264c39f4268a277ce914038a627476bdbe50ba3";
 const PUSH_RELAY_CONFIGURED = !PUSH_RELAY_URL.includes("REPLACE_ME") && !PUSH_RELAY_SECRET.includes("REPLACE_ME");
 
 async function pushToRelay(token, title, message, data, channelId){
@@ -593,12 +627,61 @@ function renderUsers(){
       <td>${bal!==undefined ? inr(bal) : '<span class="refreshHint">not synced</span>'}</td>
       <td>${fmtDate(u.lastSeen)}</td>
       <td>${fmtDate(u.createdAt)}</td>
+      <td><button class="btn small danger" data-act="deleteuser" data-id="${u.id}">Delete</button></td>
     </tr>`;
   }).join('');
   if(usersData.length && !rows.length){
-    document.getElementById('usersTbody').innerHTML = `<tr><td colspan="8"><div class="emptyState">No users match these filters.</div></td></tr>`;
+    document.getElementById('usersTbody').innerHTML = `<tr><td colspan="9"><div class="emptyState">No users match these filters.</div></td></tr>`;
   }
+
+  document.querySelectorAll('#usersTbody [data-act="deleteuser"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Delete this user\'s profile, wallet, and KYC data? This cannot be undone and does not affect their ability to sign in again as a brand-new profile.')) return;
+      const uid = btn.dataset.id;
+      try{
+        await deleteDoc(doc(db,'users',uid));
+        await deleteDoc(doc(db,'wallets',uid)).catch(()=>{});
+        await deleteDoc(doc(db,'kyc',uid)).catch(()=>{});
+        toast('User deleted.');
+      }catch(e){ toast('Delete failed: '+e.message); }
+    });
+  });
 }
+
+// ---------------- Add user (manual profile — no real sign-in account) ----------------
+document.getElementById('openAddUser').addEventListener('click', ()=>{
+  document.getElementById('newUserName').value = '';
+  document.getElementById('newUserPhone').value = '';
+  document.getElementById('newUserGender').value = 'male';
+  document.getElementById('newUserBalance').value = '0';
+  document.getElementById('addUserModal').classList.add('open');
+});
+document.getElementById('cancelAddUser').addEventListener('click', ()=>{
+  document.getElementById('addUserModal').classList.remove('open');
+});
+document.getElementById('addUserModal').addEventListener('click', (e)=>{
+  if(e.target.id==='addUserModal') e.target.classList.remove('open');
+});
+document.getElementById('createUserBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('newUserName').value.trim();
+  const phone = document.getElementById('newUserPhone').value.trim();
+  const role = document.getElementById('newUserGender').value;
+  const balance = parseFloat(document.getElementById('newUserBalance').value) || 0;
+  if(!name || !phone){ toast('Name and phone are required.'); return; }
+  try{
+    const newRef = doc(collection(db,'users'));
+    await setDoc(newRef, {
+      name, phone, role,
+      online: false,
+      lastSeen: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      manuallyAdded: true,
+    });
+    await setDoc(doc(db,'wallets',newRef.id), { balance }, { merge:true });
+    document.getElementById('addUserModal').classList.remove('open');
+    toast('User created.');
+  }catch(e){ toast('Failed: '+e.message); }
+});
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
